@@ -5,16 +5,15 @@ Jelenlegi todo:
 
 alkalmazás komponensei:
 
-gyakori fénymérés
-	-> fénymennyiség mentése a frequent táblába
+Gyakori fénymérés:
+fénymennyiség mentése a frequent táblába
 	
-kapcsolat a felhővel
-	-> szenzorok beolvasása/fény átlagolása
-	-> adatok mentése helyi adatbázisba
-	-> adatok feltöltése
-	-> parancsok letöltése
-	-> parancsok végrehajtása
+Kapcsolat a felhővel:
+szenzorok beolvasása/fény átlagolása
+adatok mentése helyi adatbázisba
+adatok feltöltése
+parancsok letöltése
+parancsok végrehajtása
 
-gondozás
-	-> napi adatok alapján öntözés //később esetleg világítás
-	-> 
+Gondozás:
+napi adatok alapján öntözés //később esetleg világítás
