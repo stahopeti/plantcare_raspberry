@@ -70,30 +70,27 @@ if True:
 db_cnx = mysql.connector.connect(**db_config)
 db_cursor = db_cnx.cursor()
 add_sensordata = (
-	"INSERT INTO SENSOR_DATA(POT_ID, TIMESTAMP, TEMPERATURE, MOISTURE, LIGHT, BLINDER_ON, WATERTANK_EMPTY, CONNECTION_DOWN) "
-	"VALUES(%s, %s, %s, %s, %s, %s, %s, %s)")
+	"insert into SENSOR_DATA(POT_ID, TIMESTAMP, TEMPERATURE, MOISTURE, LIGHT, BLINDER_ON, WATERTANK_EMPTY, CONNECTION_DOWN) "
+	"values(%s, %s, %s, %s, %s, %s, %s, %s)")
 	
 remove_old_data = (
-	"DELETE FROM SENSOR_DATA "
-	"WHERE TIMESTAMP < %s")
+	"delete from SENSOR_DATA "
+	"where TIMESTAMP < %s")
 
 #serial_json = json.loads(serial_data)
 
-db_cursor.execute("select SUM(LIGHT)/COUNT(*) from FREQ_LIGHT;");
+db_cursor.execute(
+"select ((select COUNT(*) from FREQ_LIGHT " 
+"where LIGHT >= (select REQ_LIGHT from PLANT_CONFIGS " 
+"where ID in (select PLANT_CONFIG_ID from POTS " 
+"where ID = FREQ_LIGHT.POT_ID)))*100 / COUNT(*)) as PERCENTAGEOFSUFFICIENT from FREQ_LIGHT;");
 light_result = db_cursor.fetchall()
 #data_to_insert = (1, strftime("%Y-%m-%d %H:%M:%S", gmtime()), serial_json["TEMPERATURE"], serial_json["MOISTURE"], serial_json["LIGHT"], serial_json["BLINDER_ON"], serial_json["WATERTANK_EMPTY"], serial_json["CONNECTION_DOWN"])
 data_to_insert = (1, strftime("%Y-%m-%d %H:%M:%S", gmtime()), random.randint(700,960), random.randint(700,960), light_result[0][0], random.randint(0,1), random.randint(0,1), random.randint(0,1))
 db_cursor.execute(add_sensordata, data_to_insert)
-db_cursor.execute(remove_old_data, ( (datetime.datetime.now() - datetime.timedelta(minutes=10)),) )
+db_cursor.execute(remove_old_data, ( (datetime.datetime.now() - datetime.timedelta(hours=24)),) )
 
-db_cursor.execute("TRUNCATE TABLE FREQ_LIGHT")
-
-#
-#remove_old_data = (
-#	"DELETE FROM FREQ_LIGHT "
-#	"WHERE TIMESTAMP < %s")
-#db_cursor.execute(remove_old_data, ( (datetime.datetime.now() - datetime.timedelta(minutes=10)),) )
-#
+db_cursor.execute("truncate table FREQ_LIGHT")
 
 # a time azert van (time ,) formatumban, mert az sql csak igy fogadja el 
 db_cnx.commit()
