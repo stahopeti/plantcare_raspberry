@@ -85,10 +85,10 @@ get_light_percentage = (
 	"select ((select COUNT(*) from FREQ_LIGHT " 
 	"where LIGHT >= (select REQ_LIGHT from PLANT_CONFIGS " 
 	"where ID in (select PLANT_CONFIG_ID from POTS " 
-	"where ID = %s)))*100 / COUNT(*)) as PERCENTAGEOFSUFFICIENT from FREQ_LIGHT;")
+	"where ID = %s)) and POT_ID = %s)*100 / COUNT(*)) as PERCENTAGEOFSUFFICIENT from FREQ_LIGHT;")
 
 
-db_cursor.execute(get_light_percentage, [pot_id]);
+db_cursor.execute(get_light_percentage, (pot_id, pot_id));
 
 light_result = db_cursor.fetchall()
 #data_to_insert = (1, strftime("%Y-%m-%d %H:%M:%S", gmtime()), serial_json["TEMPERATURE"], serial_json["MOISTURE"], serial_json["LIGHT"], serial_json["BLINDER_ON"], serial_json["WATERTANK_EMPTY"], serial_json["CONNECTION_DOWN"])
