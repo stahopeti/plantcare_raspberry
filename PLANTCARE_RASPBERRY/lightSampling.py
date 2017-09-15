@@ -1,3 +1,4 @@
+import sys
 import mysql.connector
 import random
 import datetime
@@ -11,18 +12,20 @@ db_config = {
 	'host': 'localhost', 
 	'database': 'PLANT_CARE'
 }
+pot_id = sys.argv[1]
+
 
 db_cnx = mysql.connector.connect(**db_config)
 db_cursor = db_cnx.cursor()
 add_light = (
-	"INSERT INTO FREQ_LIGHT(TIMESTAMP, LIGHT, POT_ID) "
-	"VALUES(NOW(), %s, %s)")
+	"INSERT INTO FREQ_LIGHT(POT_ID, TIMESTAMP, LIGHT) "
+	"VALUES(%s, NOW(), %s)")
 
 remove_old_data = (
 	"DELETE FROM FREQ_LIGHT "
 	"WHERE TIMESTAMP < %s")
 	
-data_to_insert = (random.randint(700,960), 1)
+data_to_insert = (pot_id, random.randint(700,960))
 db_cursor.execute(add_light, data_to_insert)
 db_cnx.commit()
 db_cursor.close()

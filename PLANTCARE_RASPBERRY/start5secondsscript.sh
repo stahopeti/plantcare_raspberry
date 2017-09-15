@@ -1,4 +1,3 @@
 #!/bin/bash
 
-date -s "2 hours"
-nohup /home/pi/plantcare_raspberry/PLANTCARE_RASPBERRY/5secondsscript.sh &
+nohup /home/pi/plantcare_raspberry/PLANTCARE_RASPBERRY/5secondsscript.sh $1 &

@@ -10,6 +10,7 @@ import serial
 from time import gmtime, strftime
 
 # configuration start
+pot_id = sys.argv[1]
 address = 0x4b
 db_config = {
 	'user': 'root', 
@@ -62,7 +63,7 @@ if False:
 
 # rest api request
 if True:
-	payload = {'POT_ID': 1, 'TIMESTAMP' : strftime("%Y-%m-%d %H:%M:%S", gmtime()), 'TEMPERATURE' : '{0:0.2f}'.format(temperature), 'MOISTURE':'{0:0.2f}'.format(moisture), 'LIGHT':'{0:0.2f}'.format(light), 'BLINDER_ON': 0, 'WATERTANK_EMPTY':0, 'CONNECTION_DOWN':0}
+	payload = {'POT_ID': pot_id, 'TIMESTAMP' : strftime("%Y-%m-%d %H:%M:%S", gmtime()), 'TEMPERATURE' : '{0:0.2f}'.format(temperature), 'MOISTURE':'{0:0.2f}'.format(moisture), 'LIGHT':'{0:0.2f}'.format(light), 'BLINDER_ON': 0, 'WATERTANK_EMPTY':0, 'CONNECTION_DOWN':0}
 	headers = {'content-type': 'application/json'}
 	r = requests.post(post_address, data = json.dumps(payload), headers = headers)
 
@@ -73,24 +74,29 @@ add_sensordata = (
 	"insert into SENSOR_DATA(POT_ID, TIMESTAMP, TEMPERATURE, MOISTURE, LIGHT, BLINDER_ON, WATERTANK_EMPTY, CONNECTION_DOWN) "
 	"values(%s, NOW(), %s, %s, %s, %s, %s, %s)")
 	
-remove_old_data = (
-	"delete from SENSOR_DATA "
-	"where TIMESTAMP < %s")
+#remove_old_data = (
+#	"delete from SENSOR_DATA "
+#	"where TIMESTAMP < %s and POT_ID")
 
 #serial_json = json.loads(serial_data)
 
-db_cursor.execute(
-"select ((select COUNT(*) from FREQ_LIGHT " 
-"where LIGHT >= (select REQ_LIGHT from PLANT_CONFIGS " 
-"where ID in (select PLANT_CONFIG_ID from POTS " 
-"where ID = FREQ_LIGHT.POT_ID)))*100 / COUNT(*)) as PERCENTAGEOFSUFFICIENT from FREQ_LIGHT;");
+
+get_light_percentage = (
+	"select ((select COUNT(*) from FREQ_LIGHT " 
+	"where LIGHT >= (select REQ_LIGHT from PLANT_CONFIGS " 
+	"where ID in (select PLANT_CONFIG_ID from POTS " 
+	"where ID = %s)))*100 / COUNT(*)) as PERCENTAGEOFSUFFICIENT from FREQ_LIGHT;")
+
+
+db_cursor.execute(get_light_percentage, [pot_id]);
+
 light_result = db_cursor.fetchall()
 #data_to_insert = (1, strftime("%Y-%m-%d %H:%M:%S", gmtime()), serial_json["TEMPERATURE"], serial_json["MOISTURE"], serial_json["LIGHT"], serial_json["BLINDER_ON"], serial_json["WATERTANK_EMPTY"], serial_json["CONNECTION_DOWN"])
-data_to_insert = (1, random.randint(700,960), random.randint(700,960), light_result[0][0], random.randint(0,1), random.randint(0,1), random.randint(0,1))
+data_to_insert = (pot_id, random.randint(700,960), random.randint(700,960), light_result[0][0], random.randint(0,1), random.randint(0,1), random.randint(0,1))
 db_cursor.execute(add_sensordata, data_to_insert)
-db_cursor.execute(remove_old_data, ( (datetime.datetime.now() - datetime.timedelta(hours=24)),) )
+#db_cursor.execute(remove_old_data, ( (datetime.datetime.now() - datetime.timedelta(hours=24)),) )
 
-db_cursor.execute("truncate table FREQ_LIGHT")
+db_cursor.execute("delete from FREQ_LIGHT where POT_ID = %s", [pot_id])
 
 # a time azert van (time ,) formatumban, mert az sql csak igy fogadja el 
 db_cnx.commit()

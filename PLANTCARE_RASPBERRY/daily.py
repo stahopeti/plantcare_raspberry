@@ -25,6 +25,12 @@ db_cursor.execute(get_sunlight_percentage)
 		
 sunlight_percentage = db_cursor.fetchall()[0][0]
 
-print sunlight_percentage/10
+#print sunlight_percentage/10
 
 print 'Need ' + str(480-(sunlight_percentage/10)) + ' more minutes of light' 
+
+print 'Turning on light at: ' + strftime("%H:%M:%S", time.localtime())
+
+time.sleep(60)
+print 'Turning off light one minute: ' + strftime("%H:%M:%S", time.localtime())
+
