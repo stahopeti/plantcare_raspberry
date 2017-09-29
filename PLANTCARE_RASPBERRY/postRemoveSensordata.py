@@ -10,7 +10,7 @@ import serial
 from time import gmtime, strftime
 
 # configuration start
-pot_id = sys.argv[1]
+pot_id = 1
 address = 0x4b
 db_config = {
 	'user': 'root', 
@@ -18,6 +18,10 @@ db_config = {
 	'host': 'localhost', 
 	'database': 'PLANT_CARE'
 }
+
+# local db querys
+db_cnx = mysql.connector.connect(**db_config)
+db_cursor = db_cnx.cursor()
 
 post_address = 'http://152.66.254.93/speti/myapi.php/SENSOR_DATA'
 
@@ -32,53 +36,13 @@ if True:
 	light = random.randint(0,9)
 
 # input from serial
-if False:
-	ser = serial.Serial(
-		port='/dev/ttyUSB0',
-		baudrate=9600,
-		parity=serial.PARITY_ODD,
-		stopbits=serial.STOPBITS_TWO,
-		bytesize=serial.SEVENBITS
-	)
-
-	if (ser.isOpen() == False):
-		ser = serial.Serial(
-			port='/dev/ttyUSB1',
-			baudrate=9600,
-			parity=serial.PARITY_ODD,
-			stopbits=serial.STOPBITS_TWO,
-			bytesize=serial.SEVENBITS
-		)
-
-	serial_data = ''
-	tries = 0
-	while ((serial_data == '')):
-		ser.write("1")
-		time.sleep(1)
-		while ser.inWaiting() > 0:
-			serial_data += ser.read(1)
-			
-		print "serial_data: " + serial_data
-	ser.close()
-
-# rest api request
-if True:
-	payload = {'POT_ID': pot_id, 'TIMESTAMP' : strftime("%Y-%m-%d %H:%M:%S", gmtime()), 'TEMPERATURE' : '{0:0.2f}'.format(temperature), 'MOISTURE':'{0:0.2f}'.format(moisture), 'LIGHT':'{0:0.2f}'.format(light), 'BLINDER_ON': 0, 'WATERTANK_EMPTY':0, 'CONNECTION_DOWN':0}
-	headers = {'content-type': 'application/json'}
-	r = requests.post(post_address, data = json.dumps(payload), headers = headers)
-
-# local db querys
-db_cnx = mysql.connector.connect(**db_config)
-db_cursor = db_cnx.cursor()
-add_sensordata = (
-	"insert into SENSOR_DATA(POT_ID, TIMESTAMP, TEMPERATURE, MOISTURE, LIGHT, BLINDER_ON, WATERTANK_EMPTY, CONNECTION_DOWN) "
-	"values(%s, NOW(), %s, %s, %s, %s, %s, %s)")
-	
-#remove_old_data = (
-#	"delete from SENSOR_DATA "
-#	"where TIMESTAMP < %s and POT_ID")
-
-#serial_json = json.loads(serial_data)
+ser = serial.Serial(
+	port='/dev/ttyUSB1',
+	baudrate=9600,
+	parity=serial.PARITY_ODD,
+	stopbits=serial.STOPBITS_TWO,
+	bytesize=serial.SEVENBITS
+)
 
 
 get_light_percentage = (
@@ -91,9 +55,55 @@ get_light_percentage = (
 db_cursor.execute(get_light_percentage, (pot_id, pot_id));
 
 light_result = db_cursor.fetchall()
-#data_to_insert = (1, strftime("%Y-%m-%d %H:%M:%S", gmtime()), serial_json["TEMPERATURE"], serial_json["MOISTURE"], serial_json["LIGHT"], serial_json["BLINDER_ON"], serial_json["WATERTANK_EMPTY"], serial_json["CONNECTION_DOWN"])
-data_to_insert = (pot_id, random.randint(700,960), random.randint(700,960), light_result[0][0], random.randint(0,1), random.randint(0,1), random.randint(0,1))
-db_cursor.execute(add_sensordata, data_to_insert)
+
+
+data_to_insert = {}
+out = ''
+result = 'notok'
+while result!='ok' :
+    # get keyboard input
+    input = '1'
+    if input == 'exit':
+        ser.close()
+        exit()
+    else:
+        ser.write(input)
+        time.sleep(1)
+        time.sleep(1)
+        while ser.inWaiting() > 0:
+            out += ser.read(1)
+	
+	if (out != ''):
+		try:
+			serial_json = json.loads(out)
+		except ValueError, e:
+			print out
+		else:
+			#POT_ID, TEMPERATURE, MOISTURE, LIGHT, LAMP_ON, WATERTANK_EMPTY, CONNECTION_DOWN
+			data_to_insert = {'POT_ID': pot_id, 'TIMESTAMP' : strftime("%Y-%m-%d %H:%M:%S", gmtime()), 'TEMPERATURE' : str(serial_json["TEMPERATURE"]), 'MOISTURE':str(serial_json["MOISTURE"]), 'LIGHT':str(light_result[0][0]), 'LAMP_ON': str(serial_json["BLINDER_ON"]), 'WATERTANK_EMPTY':str(serial_json["WATERTANK_EMPTY"]), 'CONNECTION_DOWN':str(serial_json["CONNECTION_DOWN"])}
+			#print data_to_insert
+		out = ''
+		result = 'ok'
+ser.close()
+
+# rest api request
+headers = {'content-type': 'application/json'}
+r = requests.post(post_address, data = json.dumps(data_to_insert), headers = headers)
+
+add_sensordata = (
+	"insert into SENSOR_DATA(POT_ID, TIMESTAMP, TEMPERATURE, MOISTURE, LIGHT, BLINDER_ON, WATERTANK_EMPTY, CONNECTION_DOWN) "
+	"values(%s, NOW(), %s, %s, %s, %s, %s, %s)")
+	
+#remove_old_data = (
+#	"delete from SENSOR_DATA "
+#	"where TIMESTAMP < %s and POT_ID")
+
+#serial_json = json.loads(serial_data)
+
+
+#POT_ID, TIMESTAMP, TEMPERATURE, MOISTURE, LIGHT, LAMP_ON, WATERTANK_EMPTY, CONNECTION_DOWN
+local_data_to_insert = (str(data_to_insert['POT_ID']), str(data_to_insert['TEMPERATURE']), str(data_to_insert['MOISTURE']), str(data_to_insert['LIGHT']), str(data_to_insert['LAMP_ON']), str(data_to_insert['WATERTANK_EMPTY']), str(data_to_insert['CONNECTION_DOWN']))
+db_cursor.execute(add_sensordata, local_data_to_insert)
 #db_cursor.execute(remove_old_data, ( (datetime.datetime.now() - datetime.timedelta(hours=24)),) )
 
 db_cursor.execute("delete from FREQ_LIGHT where POT_ID = %s", [pot_id])

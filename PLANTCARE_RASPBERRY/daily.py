@@ -1,3 +1,4 @@
+import sys
 import mysql.connector
 import random
 import datetime
@@ -12,25 +13,17 @@ db_config = {
 	'database': 'PLANT_CARE'
 }
 
+pot_id = sys.argv[1]
+
 db_cnx = mysql.connector.connect(**db_config)
 db_cursor = db_cnx.cursor()
-
-get_sunlight_percentage = (
+get_sunlight_minutes = (
 	"select (SUM(LIGHT)) from SENSOR_DATA "
 	"where cast(TIMESTAMP as time) >= ( "
 		"select SUNRISE from POTS "
-		"where ID = SENSOR_DATA.POT_ID);")
-
-db_cursor.execute(get_sunlight_percentage)
-		
+		"where ID = %s) and POT_ID = %s "
+		"and cast(TIMESTAMP as date) = cast(NOW() as date);")
+db_cursor.execute(get_sunlight_minutes, (pot_id, pot_id)) 
 sunlight_percentage = db_cursor.fetchall()[0][0]
-
-#print sunlight_percentage/10
-
-print 'Need ' + str(480-(sunlight_percentage/10)) + ' more minutes of light' 
-
-print 'Turning on light at: ' + strftime("%H:%M:%S", time.localtime())
-
-time.sleep(60)
-print 'Turning off light one minute: ' + strftime("%H:%M:%S", time.localtime())
-
+#print 'Need ' + str(480-(sunlight_percentage/10)) + ' more minutes of light' 
+print 'sun shined for: ' + str((sunlight_percentage)) + ' minutes' 

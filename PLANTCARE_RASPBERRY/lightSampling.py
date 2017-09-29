@@ -13,6 +13,7 @@ db_config = {
 	'database': 'PLANT_CARE'
 }
 pot_id = sys.argv[1]
+#light_amount = sys.argv[2]
 
 
 db_cnx = mysql.connector.connect(**db_config)
