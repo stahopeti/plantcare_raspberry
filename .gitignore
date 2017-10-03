@@ -1,2 +1,4 @@
 #ignore log folder and log files
 logs/
+*.pyc
+daily2.py
