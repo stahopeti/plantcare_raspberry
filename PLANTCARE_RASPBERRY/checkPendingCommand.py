@@ -1,3 +1,4 @@
+import os
 import sys
 import requests
 import json
@@ -9,7 +10,17 @@ import serial
 from time import gmtime, strftime 
 
 
-pot_id = 1
+pot_id = sys.argv[1]
+serial_port = sys.argv[2]
+
+	
+ser = serial.Serial(
+		port=serial_port,
+		baudrate=9600,
+		parity=serial.PARITY_ODD,
+		stopbits=serial.STOPBITS_TWO,
+		bytesize=serial.SEVENBITS)	
+		
 # configuration start
 db_config = {
 	'user': 'root', 
@@ -18,16 +29,19 @@ db_config = {
 	'database': 'PLANT_CARE'
 }
 	
-ser = serial.Serial(
-	port='/dev/ttyUSB0',
-	baudrate=9600,
-	parity=serial.PARITY_ODD,
-	stopbits=serial.STOPBITS_TWO,
-	bytesize=serial.SEVENBITS)
-	
-	
 get_plant_config_id = (
 	"select PLANT_CONFIG_ID from POTS where ID = %s")
+	
+insert_pot = (
+	"insert into POTS(ID, NAME, PLANT_CONFIG_ID, SUNRISE, SUNSET, SERIAL_PORT) "
+	"values(%s, %s, %s, %s, %s, %s)")
+
+get_new_plant_config_id = (
+	"select ID from PLANT_CONFIGS where POT_ID = %s")
+
+insert_plant_config = (
+	"insert into PLANT_CONFIGS(PLANT_CODE, PLANT_NAME, REQ_TEMP, REQ_MOIST, REQ_LIGHT, REQ_LIGHT_MINUTES, POT_ID)"
+	"values(%s, %s, %s, %s, %s, %s, %s)")
 	
 update_plant_config = (
 	"update PLANT_CONFIGS "
@@ -39,9 +53,10 @@ update_plant_config = (
 	", REQ_LIGHT_MINUTES = %s "
 	"where ID = %s")
 	
-get_commands_address = 'http://152.66.254.93/speti/myapi.php/COMMANDS'
+get_commands_address = 'http://152.66.254.93/speti/myapi.php/COMMANDS/POTS'
 get_plant_configs_address = 'http://152.66.254.93/speti/myapi.php/PLANT_CONFIGS'
-delete_commands_address = 'http://152.66.254.93/speti/myapi.php/COMMANDS'
+get_pot = 'http://152.66.254.93/speti/myapi.php/POTS'
+delete_commands_address = 'http://152.66.254.93/speti/myapi.php/COMMANDS/POTS'
 
 class Task:
 	ID = ""
@@ -56,18 +71,57 @@ class Task:
 
 def executeOrder( taskparam ):
 	if( taskparam.task == 'W' ):
-		payload = { 'ID' : taskparam.ID }
-		headers = {'content-type': 'application/json'}
-		requests.delete(delete_commands_address, data = json.dumps(payload), headers = headers)
+		try:
+			payload = { 'ID' : taskparam.ID }
+			deciliters = int(taskparam.parameter)
+			iterations = 0
+			while ( iterations < deciliters ):
+				iterations = iterations + 1
+				out = ''
+				input = 'E'
+				ser.flush()
+				ser.write(input)
+				time.sleep(1)
+				while ser.inWaiting() > 0:
+					out += ser.read(1)
+				
+			headers = {'content-type': 'application/json'}
+			requests.delete(delete_commands_address, data = json.dumps(payload), headers = headers)
+		except (mysql.connector.Error, serial.SerialException) as e:
+			print e
 	if( taskparam.task == 'L_SPEC' ):
-		payload = { 'ID' : taskparam.ID }
-		headers = {'content-type': 'application/json'}
-		requests.delete(delete_commands_address, data = json.dumps(payload), headers = headers)
+		try:
+			payload = { 'ID' : taskparam.ID }
+			time_for_lamp_seconds = int(taskparam.parameter)*60
+			print 'lampseconds: ' + str(time_for_lamp_seconds)
+			out = ''
+			input = '8'
+			ser.flush()
+			ser.write(input)
+			time.sleep(1)
+			while ser.inWaiting() > 0:
+				out += ser.read(1)
+
+			time.sleep(time_for_lamp_seconds)
+			#while out != 'Closing valve!':
+			out = ''
+			input = '7'
+			ser.flush()
+			ser.write(input)
+			time.sleep(1)
+			while ser.inWaiting() > 0:
+				out += ser.read(1)
+			out = ''
+			ser.flush()
+			headers = {'content-type': 'application/json'}
+			requests.delete(delete_commands_address, data = json.dumps(payload), headers = headers)
+		except (mysql.connector.Error, serial.SerialException) as e:
+			print e
 	if( taskparam.task == 'C_CHNG' ):
 		try:
 			payload = { 'ID' : taskparam.parameter }
 			headers = {'content-type-*': 'application/json'}
-			new_config = requests.get('http://152.66.254.93/speti/myapi.php/PLANT_CONFIGS', data = json.dumps(payload), headers = headers)
+			new_config = requests.get(get_plant_configs_address, data = json.dumps(payload), headers = headers)
 			json_config = new_config.json()
 			
 			db_cnx = mysql.connector.connect(**db_config)
@@ -96,12 +150,26 @@ try:
 	print 'DUMPS: '
 	print json.dumps(json_response, indent=4, sort_keys=True)
 	#print 'REC: '
+	basic_commands = []
+	new_pot_commands = []
+	
 	for rec in json_response:
 		tsk = Task(rec["id"], rec["task"], rec["parameter"])
 		tsk.ID = rec["id"]
 		tsk.task = rec["task"]
 		tsk.parameter = rec["parameter"]
-		executeOrder(tsk)
+		
+		if (tsk.task == 'P_ADDED'): 
+			new_pot_commands.append(tsk)
+		else:
+			basic_commands.append(tsk)
+		
+		#executeOrder(tsk)
+	if basic_commands:
+		for t in basic_commands:
+			print 'Basic command: ' + t.task
+			executeOrder(t)
+	
 		
 except ValueError, e:
 	print e

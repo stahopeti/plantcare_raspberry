@@ -18,13 +18,6 @@ db_config = {
 	'host': 'localhost', 
 	'database': 'PLANT_CARE'
 }
-	
-ser = serial.Serial(
-	port='/dev/ttyUSB0',
-	baudrate=9600,
-	parity=serial.PARITY_ODD,
-	stopbits=serial.STOPBITS_TWO,
-	bytesize=serial.SEVENBITS)
 
 get_freq_light_percentage = (
 	"select ((select COUNT(*) from FREQ_LIGHT " 
@@ -36,8 +29,12 @@ add_sensordata = (
 	"insert into SENSOR_DATA(POT_ID, TIMESTAMP, TEMPERATURE, MOISTURE, LIGHT, BLINDER_ON, WATERTANK_EMPTY, CONNECTION_DOWN) "
 	"values(%s, NOW(), %s, %s, %s, %s, %s, %s)")
 	
-def work(pot_id):
+def work(pot_id, ser):
 	try:
+		ser.isOpen()
+		time.sleep(2)
+		
+		
 		post_address = 'http://152.66.254.93/speti/myapi.php/SENSOR_DATA'
 		#get_freq_light_percentage
 		db_cnx = mysql.connector.connect(**db_config)
@@ -48,7 +45,6 @@ def work(pot_id):
 		data_to_insert = {}
 		input = '1'
 		out = ''
-		ser.flush()
 		ser.write(input)
 		time.sleep(1)
 		while ser.inWaiting() > 0:
